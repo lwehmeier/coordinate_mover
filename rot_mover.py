@@ -20,12 +20,12 @@ MAX_ERROR = 0.05
 def YAW_SPEED_MAP(val):
     val=np.linalg.norm(val)
     if val < 0.2 : 
-        return 0.02
-    if val < 0.4: 
         return 0.05
+    if val < 0.4: 
+        return 0.09
     if val < 0.6: 
-        return 0.1
-    return 0.14
+        return 0.12
+    return 0.18
 
 def controllerLoop(event):
     global controller_done
