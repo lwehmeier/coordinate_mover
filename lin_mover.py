@@ -43,7 +43,7 @@ def controllerLoop(event):
         controller_done = True
         sendMovement([0,0,0])
         return
-    if np.linalg.norm(map_vel) == 0 or error > MAX_ERROR and error/getTargetDistance(position, tgt)<0.5:
+    if np.linalg.norm(map_vel) == 0 or error > MAX_ERROR and error/getTargetDistance(position, tgt)>0.15:
         print("error to large. Updating movement command:")
         mvmt = computeMovement(position, tgt)
         sendMovement(mvmt)
@@ -99,7 +99,10 @@ def getTarget(): #in robot base frame
 
 def targetUpdate(data):
     global target
-    target = data
+    tgt = PointStamped()
+    tgt.header = data.header
+    tgt.point = data.pose.position
+    target = tgt
     global controller_done
     controller_done = False
     print("received new target: (map_frame)"+str(target))
@@ -127,7 +130,7 @@ rospy.init_node('map_cartesian_mover')
 tfBuffer = tf2_ros.Buffer()
 listener = tf2_ros.TransformListener(tfBuffer)
 velPub = rospy.Publisher("/cmd_vel", Twist, queue_size=3)
-rospy.Subscriber("/direct_move/target", PointStamped, targetUpdate)
+rospy.Subscriber("/direct_move/lin_target", PoseStamped, targetUpdate)
 rospy.Subscriber("/slam_out_pose", PoseStamped, positionUpdate)
 rospy.Subscriber("/cmd_vel", Twist, velocityUpdate)
 rospy.Timer(rospy.Duration(UPDATE_PERIOD), controllerLoop)
