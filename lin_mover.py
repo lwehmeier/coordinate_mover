@@ -16,13 +16,21 @@ BASE_FRAME= "base_footprint"
 MAP_FRAME="map"
 UPDATE_PERIOD = 0.5
 MAX_ERROR = 0.1
-DISTANCE_SPEED_MAP = {0.1 : 0.02, 0.2: 0.05, 0.5: 0.1}
+
+def DISTANCE_SPEED_MAP(val):
+    if val < 0.1 : 
+        return 0.02
+    if val < 0.2: 
+        return 0.05
+    if val < 0.5: 
+        return 0.1
+    return 0.14
 
 def controllerLoop(event):
     global controller_done
     if controller_done:
         return
-    position = last_position.position.linear
+    position = last_position.pose.position
     position = np.array([position.x, position.y, 0])
     map_vel = getVelocity()
     error = estimateTargetDeviation(position, map_vel, target)
@@ -32,7 +40,7 @@ def controllerLoop(event):
         print("reached target. stopping")
         controller_done = True
         return
-    if error > MAX_ERROR and error/getTargetDistance(position, target)<0.5:
+    if np.linalg.norm(map_vel) == 0 or error > MAX_ERROR and error/getTargetDistance(position, target)<0.5:
         print("error to large. Updating movement command:")
         mvmt = computeMovement(position, target)
         sendMovement(mvmt)
@@ -44,12 +52,12 @@ def computeMovement(position, tgt):
     distance = getTargetDistance(position, tgt)
     yaw = getBaseYaw()
     direction = np.array([direction[0]*cos(yaw)-direction[0]*sin(yaw),direction[1]*sin(yaw)+direction[1]*cos(yaw),0]) #rotate to base frame
-    vel = direction/np.linalg.norm(direction)*DISTANCE_SPEED_MAP[distance]
+    vel = direction/np.linalg.norm(direction)*DISTANCE_SPEED_MAP(distance)
     return vel
 
-def sendMovement(mvmt):
+def sendMovement(move):
     mvmt = Twist()
-    mvmt.linear = Vector3(mvmt.x, mvmt.y, 0)
+    mvmt.linear = Vector3(move[0], move[1], 0)
     velPub.publish(mvmt)
 def getTargetDistance(point, target):
     return np.linalg.norm(target-point)
@@ -59,16 +67,16 @@ def estimateTargetDeviation(position, v, target):
     return distance
 
 def getBaseYaw():
-    transf = tfBuffer.lookup_transform(MAP_FRAME, BASE_FRAME, rospy.Time())
-    quat = transf.transform.roation
-    euler = tf.transformations.euler_from_quaternion(quat)
+    transf = tfBuffer.lookup_transform(MAP_FRAME, BASE_FRAME, rospy.Time(), timeout=rospy.Duration(2))
+    quat = transf.transform.rotation
+    euler = tf.transformations.euler_from_quaternion(np.array([quat.x, quat.y, quat.z, quat.w]))
     roll = euler[0]
     pitch = euler[1]
     yaw = euler[2]
     return yaw
 
 def getVelocity():
-    transf = tfBuffer.lookup_transform(MAP_FRAME, BASE_FRAME, rospy.Time())
+    transf = tfBuffer.lookup_transform(MAP_FRAME, BASE_FRAME, rospy.Time(),timeout=rospy.Duration(2))
     v = Vector3Stamped()
     v.vector = last_cmdvel.linear
     v.header.frame_id = BASE_FRAME
@@ -87,7 +95,7 @@ def positionUpdate(data):
     global last_position
     last_position = data
     pass
-def positionUpdate(data):
+def velocityUpdate(data):
     global last_cmdvel
     last_cmdvel = data
     pass
@@ -107,7 +115,7 @@ tfBuffer = tf2_ros.Buffer()
 listener = tf2_ros.TransformListener(tfBuffer)
 velPub = rospy.Publisher("/cmd_vel", Twist, queue_size=3)
 rospy.Subscriber("/direct_move/target", Point, targetUpdate)
-rospy.Subscriber("/slam_pose_out", PoseStamped, positionUpdate)
+rospy.Subscriber("/slam_out_pose", PoseStamped, positionUpdate)
 rospy.Subscriber("/cmd_vel", Twist, velocityUpdate)
 rospy.Timer(rospy.Duration(UPDATE_PERIOD), controllerLoop)
 rospy.spin()
