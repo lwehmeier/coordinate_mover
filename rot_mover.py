@@ -15,7 +15,7 @@ import tf2_geometry_msgs
 BASE_FRAME= "base_footprint"
 MAP_FRAME="map"
 UPDATE_PERIOD = 0.5
-MAX_ERROR = 0.1
+MAX_ERROR = 0.05
 
 def YAW_SPEED_MAP(val):
     val=np.linalg.norm(val)
@@ -72,7 +72,7 @@ def getVelocity(): # in robot frame
     vel = np.array([v.vector.z, 0, 0])
     return vel
 def getTargetYaw(): #in robot base frame
-    transf = tfBuffer.lookup_transform(BASE_FRAME, target.header.frame_id, rospy.Time(),timeout=rospy.Duration(2))
+    transf = tfBuffer.lookup_transform(BASE_FRAME, MAP_FRAME, rospy.Time(),timeout=rospy.Duration(2))
     tgt = tf2_geometry_msgs.do_transform_pose(target, transf)
     quaternion = [tgt.pose.orientation.x, tgt.pose.orientation.y, tgt.pose.orientation.z, tgt.pose.orientation.w]
     euler = tf.transformations.euler_from_quaternion(quaternion)
@@ -81,7 +81,9 @@ def getTargetYaw(): #in robot base frame
     yaw = euler[2]
     return np.array([yaw, 0, 0])
 
-def targetUpdate(data):
+def targetUpdate(data): # store target in static map frame
+    transf = tfBuffer.lookup_transform(MAP_FRAME, data.header.frame_id, data.header.stamp, timeout=rospy.Duration(2))
+    data = tf2_geometry_msgs.do_transform_pose(data, transf)
     global target
     target = data
     global controller_done

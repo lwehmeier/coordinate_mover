@@ -15,7 +15,7 @@ import tf2_geometry_msgs
 BASE_FRAME= "base_footprint"
 MAP_FRAME="map"
 UPDATE_PERIOD = 0.5
-MAX_ERROR = 0.1
+MAX_ERROR = 0.05
 
 def DISTANCE_SPEED_MAP(val):
     if val < 0.1 : 
@@ -35,6 +35,7 @@ def controllerLoop(event):
     position = np.array([0,0,0]) # we're using the base frame as reference frame
     map_vel = getVelocity()
     tgt = getTarget()
+    print("target"+str(tgt))
     error = estimateTargetDeviation(position, map_vel, tgt)
     print("estimated error: " + str(error))
     print("error/distance: " + str(error/getTargetDistance(position, tgt)))
@@ -56,7 +57,7 @@ def controllerLoop(event):
     pass
 
 def computeMovement(position, tgt):
-    direction = position - tgt
+    direction = tgt - position
     distance = getTargetDistance(position, tgt)
     #yaw = getBaseYaw()
     #direction = np.array([direction[0]*cos(yaw)-direction[0]*sin(yaw),direction[1]*sin(yaw)+direction[1]*cos(yaw),0]) #rotate to base frame
@@ -72,7 +73,10 @@ def getTargetDistance(point, target):
     return np.linalg.norm(target-point)
 
 def estimateTargetDeviation(position, v, target):
-    distance = np.linalg.norm(np.cross(position-target, v))/np.linalg.norm(v)
+    if v[0] != 0.0 or v[1] != 0.0 and position.any() != 0:
+        distance = np.linalg.norm(np.cross(position-target, v))/np.linalg.norm(v)
+    else:
+        distance = np.linalg.norm(position-target)
     return distance
 
 def getBaseYaw():
@@ -93,12 +97,15 @@ def getVelocity(): # in robot frame
     vel = np.array([v.vector.x, v.vector.y, 0])
     return vel
 def getTarget(): #in robot base frame
-    transf = tfBuffer.lookup_transform(BASE_FRAME, target.header.frame_id, rospy.Time(),timeout=rospy.Duration(2))
+    transf = tfBuffer.lookup_transform(BASE_FRAME, MAP_FRAME, rospy.Time(),timeout=rospy.Duration(2))
+    print(transf)
     tgt = tf2_geometry_msgs.do_transform_point(target, transf)
     return np.array([tgt.point.x, tgt.point.y, 0])
 
-def targetUpdate(data):
+def targetUpdate(data): #transforms target to map frame as that is the only frame guaranteed to be static
     global target
+    transf = tfBuffer.lookup_transform(MAP_FRAME, data.header.frame_id, data.header.stamp, timeout=rospy.Duration(2))
+    data = tf2_geometry_msgs.do_transform_pose(data, transf)
     tgt = PointStamped()
     tgt.header = data.header
     tgt.point = data.pose.position
