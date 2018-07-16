@@ -15,15 +15,15 @@ import tf2_geometry_msgs
 BASE_FRAME= "base_footprint"
 MAP_FRAME="map"
 UPDATE_PERIOD = 0.5
-MAX_ERROR = 0.05
+MAX_ERROR = 0.1
 
 def YAW_SPEED_MAP(val):
     val=np.linalg.norm(val)
-    if val < 0.1 : 
+    if val < 0.2 : 
         return 0.02
-    if val < 0.2: 
+    if val < 0.4: 
         return 0.05
-    if val < 0.5: 
+    if val < 0.6: 
         return 0.1
     return 0.14
 
@@ -34,7 +34,8 @@ def controllerLoop(event):
     vel = getVelocity() #Yaw, Pitch, Roll
     tgt = getTargetYaw()
     error = np.linalg.norm(tgt[0])
-    if tgt[0] < MAX_ERROR:
+    print(np.linalg.norm(tgt[0]))
+    if np.linalg.norm(tgt[0]) < MAX_ERROR:
         print("reached target. Stopping..")
         sendMovement(0)
         controller_done = True
@@ -44,9 +45,9 @@ def controllerLoop(event):
         mvmt = computeMovement(tgt)
         sendMovement(mvmt)
         print(mvmt)
-    if vel[0] > YAW_SPEED_MAP(getTargetDistanceRad(tgt)):
+    if np.linalg.norm(vel[0]) > YAW_SPEED_MAP(getTargetDistanceRad(tgt)) or vel[0]*tgt[0] < 0 : #last condition catches movement in the wrong direction
         print("Exceeded speed limit. Updating cmd_vel:")
-        mvmt = computeMovement(tgt[0])
+        mvmt = computeMovement(tgt)
         sendMovement(mvmt)
         print(mvmt)
     pass
