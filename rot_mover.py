@@ -14,16 +14,16 @@ import tf2_geometry_msgs
 
 BASE_FRAME= "base_footprint"
 MAP_FRAME="map"
-UPDATE_PERIOD = 0.5
-MAX_ERROR = 0.05
+UPDATE_PERIOD = 0.1
+MAX_ERROR = 0.03
 
 def YAW_SPEED_MAP(val):
     val=np.linalg.norm(val)
-    if val < 0.2 : 
-        return 0.05
+    if val < 0.25 : 
+        return 0.02
     if val < 0.4: 
         return 0.09
-    if val < 0.6: 
+    if val < 0.65: 
         return 0.12
     return 0.18
 
@@ -103,7 +103,7 @@ global velPub
 global target
 global controller_done
 controller_done = True
-rospy.init_node('map_cartesian_mover')
+rospy.init_node('cartesian_mover_rot')
 tfBuffer = tf2_ros.Buffer()
 listener = tf2_ros.TransformListener(tfBuffer)
 velPub = rospy.Publisher("/cmd_vel", Twist, queue_size=3)

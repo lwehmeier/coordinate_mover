@@ -14,10 +14,12 @@ import tf2_geometry_msgs
 
 BASE_FRAME= "base_footprint"
 MAP_FRAME="map"
-UPDATE_PERIOD = 0.5
-MAX_ERROR = 0.05
+UPDATE_PERIOD = 0.1
+MAX_ERROR = 0.02
 
 def DISTANCE_SPEED_MAP(val):
+    if val < 0.07:
+        return 0.01
     if val < 0.1 : 
         return 0.02
     if val < 0.2: 
@@ -133,7 +135,7 @@ global controller_done
 controller_done = True
 last_position = PoseStamped()
 target = np.array([0,0,0])
-rospy.init_node('map_cartesian_mover')
+rospy.init_node('cartesian_mover_lin')
 tfBuffer = tf2_ros.Buffer()
 listener = tf2_ros.TransformListener(tfBuffer)
 velPub = rospy.Publisher("/cmd_vel", Twist, queue_size=3)
