@@ -1,7 +1,0 @@
-<!-- Starts up everything needed to run the example listener/talker Python nodes. -->
-
-<launch>
-  <node pkg="coordinate_mover" type="simple_rel_mover.py" name="simple_rel_mover">
-    <param name="rate" value="10"/>
-  </node>
-</launch>

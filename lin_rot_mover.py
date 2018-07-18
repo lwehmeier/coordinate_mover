@@ -16,7 +16,7 @@ BASE_FRAME= "base_footprint"
 MAP_FRAME="map"
 UPDATE_PERIOD = 0.1
 MAX_ERROR = 0.01
-
+MAX_YAW_ERROR = 0.03
 def DISTANCE_SPEED_MAP(val):
     if val < 0.05:
         return 0.015
@@ -27,6 +27,15 @@ def DISTANCE_SPEED_MAP(val):
     if val < 0.5: 
         return 0.1
     return 0.14
+def YAW_SPEED_MAP(val):
+    val=np.linalg.norm(val)
+    if val < 0.25 :
+        return 0.02
+    if val < 0.4:
+        return 0.09
+    if val < 0.65:
+        return 0.12
+    return 0.18
 
 def controllerLoop(event):
     global controller_done
@@ -41,35 +50,45 @@ def controllerLoop(event):
     error = estimateTargetDeviation(position, map_vel, tgt)
     print("estimated error: " + str(error))
     print("error/distance: " + str(error/getTargetDistance(position, tgt)))
-    if getTargetDistance(position, tgt) < MAX_ERROR:
+    yaw = getTargetYaw()
+    mvmt = np.array([0,0,0])
+    if getTargetDistance(position, tgt) < MAX_ERROR and np.linalg.norm(yaw) < MAX_YAW_ERROR:
         print("reached target. stopping")
         controller_done = True
         sendMovement([0,0,0])
         return
     if np.linalg.norm(map_vel) == 0 or error > MAX_ERROR and error/getTargetDistance(position, tgt)>0.15:
         print("error to large. Updating movement command:")
-        mvmt = computeMovement(position, tgt)
-        sendMovement(mvmt)
+        mvmt = mvmt + computeMovementLin(position, tgt) + computeMovementRot()
         print(mvmt)
-    if np.linalg.norm(map_vel) > DISTANCE_SPEED_MAP(getTargetDistance(position, tgt)):
+        sendMovement(mvmt)
+    if np.linalg.norm(map_vel) > DISTANCE_SPEED_MAP(getTargetDistance(position, tgt)) or np.linalg.norm(getYawSpeed()) > YAW_SPEED_MAP(np.linalg.norm(getYawSpeed())):
         print("Exceeded speed limit. Updating cmd_vel:")
-        mvmt = computeMovement(position, tgt)
+        mvmt = computeMovementLin(position, tgt) + computeMovementRot()
         sendMovement(mvmt)
         print(mvmt)
     pass
 
-def computeMovement(position, tgt):
+def computeMovementLin(position, tgt):
+    if getTargetDistance(np.array([0,0,0]), getTarget()) < MAX_ERROR:
+        return np.array([0,0,0])
     direction = tgt - position
     distance = getTargetDistance(position, tgt)
-    #yaw = getBaseYaw()
-    #direction = np.array([direction[0]*cos(yaw)-direction[0]*sin(yaw),direction[1]*sin(yaw)+direction[1]*cos(yaw),0]) #rotate to base frame
     direction = np.array([direction[0],direction[1],0])
     vel = direction/np.linalg.norm(direction)*DISTANCE_SPEED_MAP(distance)
+    return vel
+def computeMovementRot():
+    if np.linalg.norm(getTargetYaw()[2])<MAX_YAW_ERROR:
+        return np.array([0,0,0])
+    vel = np.array([0,0,0])
+    yaw = getTargetYaw()[2]
+    vel[2] = YAW_SPEED_MAP(np.linalg.norm(yaw))*yaw/np.linalg.norm(yaw) #direction
     return vel
 
 def sendMovement(move):
     mvmt = Twist()
     mvmt.linear = Vector3(move[0], move[1], 0)
+    mvmt.angular = Vector3(0,0,move[2])
     velPub.publish(mvmt)
 def getTargetDistance(point, target):
     return np.linalg.norm(target-point)
@@ -81,15 +100,15 @@ def estimateTargetDeviation(position, v, target):
         distance = np.linalg.norm(position-target)
     return distance
 
-def getBaseYaw():
-    transf = tfBuffer.lookup_transform(MAP_FRAME, BASE_FRAME, rospy.Time(), timeout=rospy.Duration(2))
-    quat = transf.transform.rotation
-    euler = tf.transformations.euler_from_quaternion(np.array([quat.x, quat.y, quat.z, quat.w]))
+def getTargetYaw(): #in robot base frame
+    transf = tfBuffer.lookup_transform(BASE_FRAME, MAP_FRAME, rospy.Time(),timeout=rospy.Duration(2))
+    tgt = tf2_geometry_msgs.do_transform_pose(target, transf)
+    quaternion = [tgt.pose.orientation.x, tgt.pose.orientation.y, tgt.pose.orientation.z, tgt.pose.orientation.w]
+    euler = tf.transformations.euler_from_quaternion(quaternion)
     roll = euler[0]
     pitch = euler[1]
     yaw = euler[2]
-    return yaw
-
+    return np.array([yaw, 0, 0])
 def getVelocity(): # in robot frame
     #transf = tfBuffer.lookup_transform(MAP_FRAME, BASE_FRAME, rospy.Time(),timeout=rospy.Duration(2))
     v = Vector3Stamped()
@@ -98,20 +117,20 @@ def getVelocity(): # in robot frame
     #vel = tf2_geometry_msgs.do_transform_vector3(v, transf)
     vel = np.array([v.vector.x, v.vector.y, 0])
     return vel
+def getYawSpeed():
+    return last_cmdvel.angular.z
 def getTarget(): #in robot base frame
     transf = tfBuffer.lookup_transform(BASE_FRAME, MAP_FRAME, rospy.Time(),timeout=rospy.Duration(2))
     print(transf)
-    tgt = tf2_geometry_msgs.do_transform_point(target, transf)
-    return np.array([tgt.point.x, tgt.point.y, 0])
+    tgt = tf2_geometry_msgs.do_transform_pose(target, transf)
+    return np.array([tgt.pose.position.x, tgt.pose.position.y, 0])
 
 def targetUpdate(data): #transforms target to map frame as that is the only frame guaranteed to be static
     global target
     transf = tfBuffer.lookup_transform(MAP_FRAME, data.header.frame_id, data.header.stamp, timeout=rospy.Duration(2))
     data = tf2_geometry_msgs.do_transform_pose(data, transf)
-    tgt = PointStamped()
-    tgt.header = data.header
-    tgt.point = data.pose.position
-    target = tgt
+    target = data
+    target.header.frame_id=MAP_FRAME
     global controller_done
     controller_done = False
     print("received new target: (map_frame)"+str(target))
@@ -135,11 +154,11 @@ global controller_done
 controller_done = True
 last_position = PoseStamped()
 target = np.array([0,0,0])
-rospy.init_node('cartesian_mover_lin')
+rospy.init_node('cartesian_mover_lin_rot')
 tfBuffer = tf2_ros.Buffer()
 listener = tf2_ros.TransformListener(tfBuffer)
 velPub = rospy.Publisher("/cmd_vel", Twist, queue_size=1, tcp_nodelay=True)
-rospy.Subscriber("/direct_move/lin_target", PoseStamped, targetUpdate)
+rospy.Subscriber("/direct_move/lin_rot_target", PoseStamped, targetUpdate)
 rospy.Subscriber("/slam_out_pose", PoseStamped, positionUpdate)
 rospy.Subscriber("/cmd_vel", Twist, velocityUpdate)
 rospy.Timer(rospy.Duration(UPDATE_PERIOD), controllerLoop)

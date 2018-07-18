@@ -1,0 +1,15 @@
+<!-- Starts up everything needed to run the example listener/talker Python nodes. -->
+
+<launch>
+  <node pkg="coordinate_mover" type="simple_rel_mover.py" name="simple_rel_mover">
+    <param name="rate" value="10"/>
+  </node>
+  <node pkg="coordinate_mover" type="lin_mover.py" name="lin_mover">
+    <param name="rate" value="10"/>
+  </node>  <node pkg="coordinate_mover" type="rot_mover.py" name="rot_mover">
+    <param name="rate" value="10"/>
+  </node>
+  <node pkg="coordinate_mover" type="lin_rot_mover.py" name="lin_rot_mover">
+    <param name="rate" value="10"/>
+  <node/>
+</launch>
