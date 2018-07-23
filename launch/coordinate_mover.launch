@@ -11,5 +11,5 @@
   </node>
   <node pkg="coordinate_mover" type="lin_rot_mover.py" name="lin_rot_mover">
     <param name="rate" value="10"/>
-  <node/>
+  </node>
 </launch>

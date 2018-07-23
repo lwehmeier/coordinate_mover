@@ -15,7 +15,7 @@ import tf2_geometry_msgs
 BASE_FRAME= "base_footprint"
 MAP_FRAME="map"
 UPDATE_PERIOD = 0.1
-MAX_ERROR = 0.01
+MAX_ERROR = 0.005
 
 def DISTANCE_SPEED_MAP(val):
     if val < 0.05:
