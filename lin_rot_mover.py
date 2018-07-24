@@ -4,7 +4,7 @@ import math
 from math import sin, cos, pi
 import rospy
 import tf
-from std_msgs.msg import Int16
+from std_msgs.msg import Int16, Bool
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point, Pose, Quaternion, Twist, Vector3, Vector3Stamped, TransformStamped, PoseStamped, PointStamped
 import struct
@@ -16,6 +16,7 @@ BASE_FRAME= "base_footprint"
 MAP_FRAME="map"
 UPDATE_PERIOD = 0.55
 MAX_ERROR = 0.02
+NEAR_TARGET_DISTANCE = 0.15
 MAX_YAW_ERROR = 0.05
 def DISTANCE_SPEED_MAP(val):
     if val < 0.1:
@@ -53,6 +54,10 @@ def controllerLoop(event):
     print("estimated error: " + str(error))
     print("estimated yaw error: " + str(getTargetYaw()[0]))
     yaw = getTargetYaw()
+    if getTargetDistance(position, tgt) < NEAR_TARGET_DISTANCE and not near_target:
+        global near_target
+        near_target = True
+        rospy.Publisher("/direct_move/near_target", Bool, queue_size=1).publish(Bool(True))
     if getTargetDistance(position, tgt) < MAX_ERROR and np.linalg.norm(yaw[0]) < MAX_YAW_ERROR:
         print("reached target. stopping")
         controller_done = True
@@ -137,6 +142,8 @@ def targetUpdate(data): #transforms target to map frame as that is the only fram
     target.header.frame_id=MAP_FRAME
     global controller_done
     controller_done = False
+    global near_target
+    near_target = False
     print("received new target: (map_frame)"+str(target))
     pass
 def positionUpdate(data):
