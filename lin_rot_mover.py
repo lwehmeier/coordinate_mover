@@ -60,6 +60,7 @@ def controllerLoop(event):
         rospy.Publisher("/direct_move/near_target", Bool, queue_size=1).publish(Bool(True))
     if getTargetDistance(position, tgt) < MAX_ERROR and np.linalg.norm(yaw[0]) < MAX_YAW_ERROR:
         print("reached target. stopping")
+        rospy.Publisher("/direct_move/reached_target", Bool, queue_size=1).publish(Bool(True))
         controller_done = True
         sendMovement([0,0,0])
         return
@@ -154,7 +155,11 @@ def velocityUpdate(data):
     global last_cmdvel
     last_cmdvel = data
     pass
-
+def targetAbort(msg):
+    if msg.data:
+        global controller_done
+        controller_done = True
+        sendMovement([0,0,0])
 global last_cmdvel
 last_cmdvel = Twist()
 global tfBuffer
@@ -172,6 +177,7 @@ velPub = rospy.Publisher("/cmd_vel", Twist, queue_size=None, tcp_nodelay=True)
 rospy.Subscriber("/direct_move/lin_rot_target", PoseStamped, targetUpdate)
 rospy.Subscriber("/slam_out_pose", PoseStamped, positionUpdate)
 rospy.Subscriber("/cmd_vel", Twist, velocityUpdate, queue_size=None, tcp_nodelay=True)
+rospy.Subscriber("/direct_move/abort", Bool, targetAbort)
 rospy.Timer(rospy.Duration(UPDATE_PERIOD), controllerLoop)
 rospy.Rate(1/UPDATE_PERIOD)
 rospy.spin()

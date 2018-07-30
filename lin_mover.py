@@ -4,7 +4,7 @@ import math
 from math import sin, cos, pi
 import rospy
 import tf
-from std_msgs.msg import Int16
+from std_msgs.msg import Int16, Bool
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point, Pose, Quaternion, Twist, Vector3, Vector3Stamped, TransformStamped, PoseStamped, PointStamped
 import struct
@@ -124,6 +124,11 @@ def velocityUpdate(data):
     global last_cmdvel
     last_cmdvel = data
     pass
+def targetAbort(msg):
+    if msg.data:
+        global controller_done
+        controller_done = True
+        sendMovement([0, 0])
 
 global last_cmdvel
 last_cmdvel = Twist()
@@ -142,6 +147,7 @@ velPub = rospy.Publisher("/cmd_vel", Twist, queue_size=1, tcp_nodelay=True)
 rospy.Subscriber("/direct_move/lin_target", PoseStamped, targetUpdate)
 rospy.Subscriber("/slam_out_pose", PoseStamped, positionUpdate)
 rospy.Subscriber("/cmd_vel", Twist, velocityUpdate)
+rospy.Subscriber("/direct_move/abort", Bool, targetAbort)
 rospy.Timer(rospy.Duration(UPDATE_PERIOD), controllerLoop)
 rospy.Rate(1/UPDATE_PERIOD)
 rospy.spin()

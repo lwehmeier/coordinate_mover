@@ -21,10 +21,17 @@ def trajectoryCB(data):
         ps.pose = pose
         ps.header.frame_id = data.header.frame_id
         trajectory.append(ps)
-
+    posPub.publish(trajectory[0])
+    print(trajectory[0])
+    trajectory = trajectory[1:]
+def targetAbort(msg):
+    if msg.data:
+        global trajectory
+        trajectory = []
 if __name__ == "__main__":
    rospy.init_node("lin_rot_trajectory") 
    rospy.Subscriber("/direct_move/near_target", Bool, nearTargetCB)
    rospy.Subscriber("/direct_move/trajectory", PoseArray, trajectoryCB)
    posPub = rospy.Publisher("/direct_move/lin_rot_target", PoseStamped, queue_size=1)
+   rospy.Subscriber("/direct_move/abort", Bool, targetAbort)
    rospy.spin()
