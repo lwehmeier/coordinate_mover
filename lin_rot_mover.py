@@ -24,10 +24,10 @@ def DISTANCE_SPEED_MAP(val):
     if val < 0.15 : 
         return 0.05
     if val < 0.2: 
-        return 0.07
+        return 0.065
     if val < 0.5: 
-        return 0.1
-    return 0.14
+        return 0.085
+    return 0.1
 def YAW_SPEED_MAP(val):
     val=np.linalg.norm(val)
     if val < 0.1 :
