@@ -37,6 +37,7 @@ def controllerLoop(event):
     print(np.linalg.norm(tgt[0]))
     if np.linalg.norm(tgt[0]) < MAX_ERROR:
         print("reached target. Stopping..")
+        rospy.Publisher("/direct_move/reached_target", Bool, queue_size=1).publish(Bool(True))
         sendMovement(0)
         controller_done = True
         return

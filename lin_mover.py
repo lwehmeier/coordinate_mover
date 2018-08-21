@@ -15,7 +15,7 @@ import tf2_geometry_msgs
 BASE_FRAME= "base_footprint"
 MAP_FRAME="map"
 UPDATE_PERIOD = 0.1
-MAX_ERROR = 0.005
+MAX_ERROR = 0.01
 
 def DISTANCE_SPEED_MAP(val):
     if val < 0.05:
@@ -42,6 +42,7 @@ def controllerLoop(event):
     print("estimated error: " + str(error))
     print("error/distance: " + str(error/getTargetDistance(position, tgt)))
     if getTargetDistance(position, tgt) < MAX_ERROR:
+        rospy.Publisher("/direct_move/reached_target", Bool, queue_size=1).publish(Bool(True))
         print("reached target. stopping")
         controller_done = True
         sendMovement([0,0,0])
